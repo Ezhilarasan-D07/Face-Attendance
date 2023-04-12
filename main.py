@@ -1,1 +1,1 @@
-print('face-attendance_system')
+print('face-attendance')
