@@ -1,37 +1,63 @@
 import cv2
-import face_recognition as fr
-import os
-from datetime import datetime
 import numpy as np
+import face_recognition as fr
+import os 
+from datetime import datetime 
 
-# loading an image 
-img_sam = fr.load_image_file('students/VJS.jpg')
-img_sam = cv2.resize(img_sam, (0,0), None, 0.25, 0.25)
-img_sam = cv2.cvtColor(img_sam, cv2.COLOR_BGR2RGB)
+# source_image
+path = 'students'
 
-# original image 
-locate_sam=fr.face_locations(img_sam)[0]
-encode_sam = fr.face_encodings(img_sam)[0]
-cv2.rectangle(img_sam,(locate_sam[0], locate_sam[2]*2),(locate_sam[1], locate_sam[3]*2),(255,0,0),2)
+std_imgs = []
+std_img_namelist = os.listdir(path)
+std_namelist = []
 
-# print(len(encode_sam))
-# testing or comparing images  
-img_test = fr.load_image_file('students/Samantha.jpg')
-img_test = cv2.resize(img_test, (0,0), None, 0.25, 0.25)
-img_test = cv2.cvtColor(img_test, cv2.COLOR_BGR2RGB)
+for img in std_img_namelist:
+    cur_img = cv2.imread(f'{path}/{img}')
+    std_imgs.append(cur_img)
+    std_namelist.append(os.path.splitext(img)[0])
 
-# 
-locate_test = fr.face_locations(img_test)[0]
-encode_test = fr.face_encodings(img_test)[0]
-cv2.rectangle(img_test,(locate_test[0], locate_test[2]*2),(locate_test[1], locate_test[3]*2),(255,0,0),2)
+def encode_imgs(images):
+    encode_list = []
+    for img in images:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        encode = fr.face_encodings(img)[0]
+        encode_list.append(encode)
+    return encode_list
 
-compare_faces = fr.compare_faces([encode_sam],encode_test)
-compare_dis = fr.face_distance([encode_sam],encode_test)
-print(compare_faces, compare_dis )
-
-cv2.imshow('frame', img_sam)
-cv2.imshow('test', img_test)
-cv2.waitKey(0)
+encoded_std_imgs = encode_imgs(std_imgs)
+# print(encoded_std_imgs[0])
+print(f'Encoding completed for {len(encoded_std_imgs)} students.')
 
 
+camera = cv2.VideoCapture(0)
+
+while True:
+    success, frame = camera.read()
+    img_frame = cv2.resize(frame, (0,0), None, 0.25, 0.25)
+    img_frame = cv2.cvtColor(img_frame, cv2.COLOR_BGR2RGB)
+
+    faces_in_frame = fr.face_locations(img_frame)
+    en_faces_in_frame = fr.face_encodings(img_frame, faces_in_frame)
+
+    for  encodedface, facelocation in zip(en_faces_in_frame, faces_in_frame):
+        matches = fr.compare_faces(encoded_std_imgs, encodedface)
+        facedist = fr.face_distance(encoded_std_imgs, encodedface)
+        matchIndex = np.argmin(facedist)
+    
+        if matches[matchIndex]:
+            std_name = std_namelist[matchIndex].upper()
+
+            x1, x2, y1, y2 = facelocation
+            x1, x2, y1, x2 = x1*4, x2*4, y1*4, y2*4
+
+            cv2.rectangle(frame, (y2,x1),(x2,y1),(0,255,0),2)
+            cv2.rectangle(frame, (y2,x1-35), (x2,y1),(0, 255, 0), cv2.FILLED)
+            cv2.putText(frame, std_name, (y2+6, y1-6), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255), 2)
+            print(std_name)
+            
+    cv2.imshow('camera frames', frame)
+    cv2.waitKey(0) 
+
+cv2.destroyAllWindows()
+camera.release()
 
